@@ -41,6 +41,9 @@ class DigitBlockParser:
 
 		for b in blocks:
 			s = s.replace(b, token)
+		
+		# not sure why you need to remove two here... is there another newline added or something?
+		s = s[:-2]
 
 		return blocks, s
 
