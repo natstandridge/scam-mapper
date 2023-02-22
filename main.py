@@ -4,6 +4,44 @@ from multiprocessing import Process, Queue, Lock
 import numpy as np
 import argparse
 
+class DigitBlockParser:
+	''' this class parses input strings and returns information
+	about blocks of digits in the string'''
+
+	def analyze_string(self, s: str, min_block_len: int, token: str) -> str:
+		base_char = ""
+		in_block = False
+		block = ""
+		blocks = []
+		s += "\n"
+		print(f"str: {s}")
+		for char in s:
+			if in_block: status_str = "in int block"
+			else: status_str = "out of block"
+			print(f"{status_str}: {block}")
+			if str(char).isdigit():
+				block += char
+				if not in_block:
+					in_block = True
+			else:
+				if in_block:
+					in_block = False
+					if len(block) > min_block_len:
+						blocks.append(block)
+					block = ""
+				else:
+					pass
+		
+		blocks.sort(key=len)
+
+		for b in blocks:
+			s = s.replace(b, token)
+		
+		# not sure why you need to remove two here... is there another newline added or something?
+		s = s[:-2]
+
+		return blocks, s
+
 class Mapper:
 	def __init__(self):
 		self.queue = Queue()
