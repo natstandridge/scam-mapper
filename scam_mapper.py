@@ -8,6 +8,44 @@ import numpy as np
 
 queue = Queue()
 
+
+class DigitBlockParser:
+	''' this class parses input strings and returns information
+	about blocks of digits in the string'''
+
+	def analyze_string(self, s: str, min_block_len: int, token: str) -> str:
+		base_char = ""
+		in_block = False
+		block = ""
+		blocks = []
+		s += "\n"
+		print(f"str: {s}")
+		for char in s:
+			if in_block: status_str = "in int block"
+			else: status_str = "out of block"
+			print(f"{status_str}: {block}")
+			if str(char).isdigit():
+				block += char
+				if not in_block:
+					in_block = True
+			else:
+				if in_block:
+					in_block = False
+					if len(block) > min_block_len:
+						blocks.append(block)
+					block = ""
+				else:
+					pass
+		
+		blocks.sort(key=len)
+
+		for b in blocks:
+			s = s.replace(b, token)
+
+		return blocks, s
+
+
+
 ## 9 digits in s{integer}.onlinehome.us
 
 def writer():
@@ -61,4 +99,10 @@ def main():
 		p.join()
 
 if __name__ == '__main__':
-	main()
+	# main()
+	dbp = DigitBlockParser()
+
+	blocks, s = dbp.analyze_string("123thisisatest76554aewf4344444", 2, "~")
+
+	print(blocks)
+	print(s)
