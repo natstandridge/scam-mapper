@@ -21,7 +21,6 @@ class DigitBlockParser:
 		in_block = False
 		block = ""
 		blocks = []
-		s += "\n"
 		for char in s:
 			if str(char).isdigit():
 				block += char
@@ -39,11 +38,9 @@ class DigitBlockParser:
 		blocks.sort(key=len)
 
 		for b in blocks:
-			s = s.replace(b, '{int(num)}')
-		
-		s = s[:-1]
+			s = s.replace(b, '{int(num)}') ## inserts fstring compatible num variable that is always converted to int just in case
 
-		return blocks, f'f"""{s}"""' ## f string hack
+		return blocks, f'f"""{s}"""' ## fstring hack that allows us to turn a normal string into an fstring
 
 class Mapper(DigitBlockParser):
 	def __init__(self):
@@ -60,12 +57,13 @@ class Mapper(DigitBlockParser):
 		self.lock.release()
 		print(f"Writer process is finished writing {url}")
 
-	def checker(self, url_f_string, start_num, end_num):
-		''' Takes in url_f_string, start_num, and end_num to run through every possible URL combo and run the writer if it has data. '''
+	def checker(self, url_fstring, start_num, end_num):
+		''' Takes in url_fstring (with variable in place of largest number block), start_num, and end_num to run through every possible URL combo and run the writer if it has data. '''
 		num = start_num
 		while num < end_num:
-			url = url_f_string
-			url = eval(url) ## evaluating to insert num into url_f_string
+			url = url_fstring
+			url = eval(url) ## evaluating to insert num into url_fstring (must be done each time the variable in the fstring changes)
+			
 			try:
 				request = str(requests.get(url))
 				
@@ -88,30 +86,38 @@ class Mapper(DigitBlockParser):
 				
 def main(num_processes=500):
 
+	def str_cleaner(string: str):
+		''' Needed for removing list tokens that remain in CL arguments. This was more efficient than using regex or loop methods. '''
+		string = str(string)
+		for ch in ["'","]","["]:
+			string = string.replace(ch, "")
+		return string
+
 	parser = argparse.ArgumentParser()
 
 	parser.add_argument("-u", "--url", required=False, nargs=1, type=str, help="For adding a URL via command-line.") ## -u flag followed by URL
-	parser.add_argument("-p", "--proc", required=False, nargs=1, type=int, help="For specifying a number of processes.")
+	parser.add_argument("-p", "--proc", required=False, nargs=1, type=int, help="For specifying a number of processes for multiprocessing to spawn.")
 
 	args = parser.parse_args()
 
 	if args.url == None:
-		url = input("\nFormat should be http:// or https://scamurl1423523.com\nPlease enter the scam URL you want to map: ") ## prompts for URL to be provided if no CL argument for -u was provided
+		url = input("\nFormat should be http:// or https://1423523.fakescamurl.com (Do not include anything to the right of the extension.)\nPlease enter the scam URL you want to map: ") ## prompts for URL to be provided if no CL argument for -u was provided
 	else:
-		url = str(args.url).replace("'", "").replace("[","").replace("]","") ## cleaning string because it retains tokens from list
+		url = str_cleaner(args.url)
 
-	if args.proc != None:
-		num_processes = int(str(args.proc).replace("'", "").replace("[","").replace("]","")) ## sets new num_processes if a CL argument was passed for -p
+	if args.proc == None:
+		num_processes = int(input("Enter the number of processes you would like multiprocessing to spawn: "))
 	else:
-		pass
+		num_processes = int(str_cleaner(args.proc)) ## sets new num_processes if a CL argument was passed for -p
 
 	dbp = DigitBlockParser()
-	num_block, url_f_string = dbp.analyze_string(url, 3) ## gets block of numbers larger than 3 out of url, and creates f string based on url with numbers removed (for iterating)
-	num_block = str(num_block).replace("'", "").replace("[","").replace("]","") ## have to remove tokens left over from list
+	num_block, url_fstring = dbp.analyze_string(url, 3) ## gets block of numbers larger than 3 out of url, and creates f string based on url with numbers removed (for iterating)
+	num_block = str_cleaner(num_block)
 	num_of_nums = len(str(num_block)) ## this is the number of digits we need to start with (num_of_nums + 1 will be the end_num)
 
+	## intializing first digit of each number
 	start_num_string = '1'
-	end_num_string = '1'
+	end_num_string = '1' 
 
 	for i in range(num_of_nums-1):	## loop for generating start number with proper number of digits
 		start_num_string += '0'
@@ -126,7 +132,7 @@ def main(num_processes=500):
 	processes = []
 	
 	for i in range(num_processes):
-		proc = Process(target=mapper.checker, args=[url_f_string, num_range[i], num_range[i+1]])
+		proc = Process(target=mapper.checker, args=[url_fstring, num_range[i], num_range[i+1]])
 		proc.start()
 		processes.append(proc)
 	

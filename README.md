@@ -1,6 +1,7 @@
 ## A way to map the subdomains used by scammers
 
 ## To-Do:
+Top - Add classes that support different link formats, like scam links that use different pages instead of subdomains. (Then also add control flow to detect or let the user select which link format most closesly resembles the one they want to map.)
 1. Add a loading bar with time estimate
 2. Add an indicator for URLs that have default sites/this domain is already registered pages
 3. Add an actual visual and interactive map wtih tkinter or similar
