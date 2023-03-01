@@ -42,7 +42,7 @@ class DigitBlockParser:
 
 		return blocks, f'f"""{s}"""' ## fstring hack that allows us to turn a normal string into an fstring
 
-class Mapper(DigitBlockParser):
+class Mapper:
 	def __init__(self):
 		self.queue = Queue()
 		self.lock = Lock()
