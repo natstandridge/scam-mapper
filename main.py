@@ -3,6 +3,7 @@ import multiprocessing as mp
 from multiprocessing import Process, Queue, Lock
 import numpy as np
 import argparse
+import pandas
 
 class Colors:
     """ Colors for differentiating between messages. Use like so: f"{colors.GREEN}My green text{colors.ENDC}".  """
@@ -42,10 +43,12 @@ class DigitBlockParser:
 
 		return blocks, f'f"""{s}"""' ## fstring hack that allows us to turn a normal string into an fstring
 
-class Mapper:
-	def __init__(self):
+class Explorer:
+	def __init__(self, mode='subdomain', wordlist='wordlists/common.txt'):
 		self.queue = Queue()
 		self.lock = Lock()
+		self.mode = mode
+		self.wordlist = wordlist
 
 	def _writer(self):
 		''' Private method for writing from queue. '''
@@ -57,31 +60,63 @@ class Mapper:
 		self.lock.release()
 		print(f"Writer process is finished writing {url}")
 
-	def checker(self, url_fstring, start_num, end_num):
+	def _page_iterator(self, url):
+		''' Returns a list of pages to check '''
+		
+		for extension in open('extensions.txt', 'r').read().splitlines():
+			if extension in url:
+				page_start_index = url.index(extension) + len(extension) + 1
+				url_without_page = url[:page_start_index]
+				break
+			else:
+				continue
+
+		with open(self.wordlist, 'r') as f:
+			directories = f.read().splitlines()
+		f.close()
+
+		page_list = []
+
+		for directory in directories:
+			page_list.append(url_without_page + directory)
+
+		return page_list
+
+	def _requester(self, url):
 		''' Takes in url_fstring (with variable in place of largest number block), start_num, and end_num to run through every possible URL combo and run the writer if it has data. '''
+
+		def check(request, url):
+			if '20' in request:
+				print(f'{Colors.GREEN}Valid URL Found: {url}{Colors.ENDC}')
+				self.queue.put(url)
+				self._writer()
+
+			elif '30' in request:
+				print(f'URL: {url} is not valid and returned 300-level code.')
+				
+			else:
+				print(f'URL: {url} is not valid and did not return 300-level code.')
+
+		request = str(requests.get(url))
+		check(request, url)
+
+		if self.mode == 'directory':
+			page_list = self._page_iterator(url)
+			for page in page_list:
+				request = str(requests.get(page))
+				check(request, page)
+				
+	def handler(self, url_fstring, start_num, end_num):
 		num = start_num
 		while num < end_num:
 			url = url_fstring
-			url = eval(url) ## evaluating to insert num into url_fstring (must be done each time the variable in the fstring changes)
-			
+			url = eval(url)
 			try:
-				request = str(requests.get(url))
-				
-				if '20' in request:
-					print(f'{Colors.GREEN}Valid URL Found: {url}{Colors.ENDC}')
-					self.queue.put(url)
-					self._writer()
-
-				elif '30' in request:
-					print(f'URL: {url} is not valid and returned 300-level code.')
-					
-				else:
-					print(f'URL: {url} is not valid and did not return 300-level code.')
-
+				self._requester(url)
 			except requests.exceptions.RequestException as e: ## have to ignore request exceptions to pass on pages that are timing out
 				#print(e)
 				print(f"URL: {url} is not valid.")
-				
+
 			num += 1
 
 def str_cleaner(string: str):
@@ -96,27 +131,36 @@ def cli_handler():
 
 	parser.add_argument("-u", "--url", required=False, nargs=1, type=str, help="For adding a URL via command-line.") ## -u flag followed by URL
 	parser.add_argument("-p", "--proc", required=False, nargs=1, type=int, help="For specifying a number of processes for multiprocessing to spawn.")
+	parser.add_argument("-b", "--block", required=False, nargs=1, type=int, help="The minimum digit block length to bruteforce.")
+	parser.add_argument("-m", "--mode", required=False, nargs=1, type=int, help="Accepts 'directory' or 'subdomain'. Subdomain mode is the default.")
 
 	args = parser.parse_args()
 
 	if args.url == None:
-		url = input("\nFormat should be http:// or https://1423523.fakescamurl.com (Do not include anything to the right of the extension.)\nPlease enter the scam URL you want to map: ") ## prompts for URL to be provided if no CL argument for -u was provided
+		url = input("\nFormat should be http:// or https://1423523.fakescamurl.com\nPlease enter the scam URL you want to map: ") ## prompts for URL to be provided if no CL argument for -u was provided
 	else:
 		url = str_cleaner(args.url)
-
 	if args.proc == None:
 		num_processes = int(input("Enter the number of processes you would like multiprocessing to spawn: "))
 	else:
 		num_processes = int(str_cleaner(args.proc)) ## sets new num_processes if a CL argument was passed for -p
-
-	return url, num_processes
+	if args.block == None:
+		block = int(input("Enter the minimum digit block length you would like to target for bruteforcing: "))
+	else:
+		block = int(str_cleaner(args.block))
+	if args.mode == None:
+		mode = input("Specify a mode (subdomain or directory): ")
+	else:
+		mode = str_cleaner(args.mode)
+	
+	return url, num_processes, block, mode
 
 def main(num_processes=500):
 
-	url, num_processes = cli_handler()
+	url, num_processes, block, mode = cli_handler()
 
 	dbp = DigitBlockParser()
-	num_block, url_fstring = dbp.analyze_string(url, 3) ## gets block of numbers larger than 3 out of url, and creates f string based on url with numbers removed (for iterating)
+	num_block, url_fstring = dbp.analyze_string(url, block) ## gets block of numbers larger than 3 out of url, and creates f string based on url with numbers removed (for iterating)
 	num_block = str_cleaner(num_block)
 	num_of_nums = len(str(num_block)) ## this is the number of digits we need to start with (num_of_nums + 1 will be the end_num)
 
@@ -132,12 +176,12 @@ def main(num_processes=500):
 
 	start_num, end_num = int(start_num_string), int(end_num_string)
 	num_range = np.linspace(start_num, end_num - 1, num_processes + 1)
-	mapper = Mapper()
+	explorer = Explorer(mode)
 
 	processes = []
 	
 	for i in range(num_processes):
-		proc = Process(target=mapper.checker, args=[url_fstring, num_range[i], num_range[i+1]])
+		proc = Process(target=explorer.handler, args=[url_fstring, num_range[i], num_range[i+1]])
 		proc.start()
 		processes.append(proc)
 	
