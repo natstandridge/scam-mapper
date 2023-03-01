@@ -83,16 +83,15 @@ class Mapper:
 				print(f"URL: {url} is not valid.")
 				
 			num += 1
-				
-def main(num_processes=500):
 
-	def str_cleaner(string: str):
+def str_cleaner(string: str):
 		''' Needed for removing list tokens that remain in CL arguments. This was more efficient than using regex or loop methods. '''
 		string = str(string)
 		for ch in ["'","]","["]:
 			string = string.replace(ch, "")
 		return string
-
+	
+def cli_handler():
 	parser = argparse.ArgumentParser()
 
 	parser.add_argument("-u", "--url", required=False, nargs=1, type=str, help="For adding a URL via command-line.") ## -u flag followed by URL
@@ -109,6 +108,12 @@ def main(num_processes=500):
 		num_processes = int(input("Enter the number of processes you would like multiprocessing to spawn: "))
 	else:
 		num_processes = int(str_cleaner(args.proc)) ## sets new num_processes if a CL argument was passed for -p
+
+	return url, num_processes
+
+def main(num_processes=500):
+
+	url, num_processes = cli_handler()
 
 	dbp = DigitBlockParser()
 	num_block, url_fstring = dbp.analyze_string(url, 3) ## gets block of numbers larger than 3 out of url, and creates f string based on url with numbers removed (for iterating)
