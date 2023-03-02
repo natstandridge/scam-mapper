@@ -3,7 +3,6 @@ import multiprocessing as mp
 from multiprocessing import Process, Queue, Lock
 import numpy as np
 import argparse
-import pandas
 
 class Colors:
     """ Colors for differentiating between messages. Use like so: f"{colors.GREEN}My green text{colors.ENDC}".  """
@@ -51,7 +50,7 @@ class Explorer:
 		self.wordlist = wordlist
 
 	def _writer(self):
-		''' Private method for writing from queue. '''
+		''' Acquires lock, gets URL from queue, and then writes to the file and releases lock. '''
 		self.lock.acquire()
 		with open('verified_domains.txt', 'a') as f:
 			url = self.queue.get()
@@ -61,7 +60,7 @@ class Explorer:
 		print(f"Writer process is finished writing {url}")
 
 	def _page_iterator(self, url):
-		''' Returns a list of pages to check '''
+		''' Returns a list of pages to check for the given URL. '''
 		
 		for extension in open('extensions.txt', 'r').read().splitlines():
 			if extension in url:
@@ -83,7 +82,8 @@ class Explorer:
 		return page_list
 
 	def _requester(self, url):
-		''' Takes in url_fstring (with variable in place of largest number block), start_num, and end_num to run through every possible URL combo and run the writer if it has data. '''
+		''' Takes in url_fstring (with variable in place of largest number block), start_num, and end_num 
+			to run through every possible URL combo and run the writer if it has data. '''
 
 		def check(request, url):
 			if '20' in request:
@@ -107,6 +107,7 @@ class Explorer:
 				check(request, page)
 				
 	def handler(self, url_fstring, start_num, end_num):
+		''' Handler that takes care of fstring evaluation, and looping through each number. '''
 		num = start_num
 		while num < end_num:
 			url = url_fstring
@@ -129,7 +130,7 @@ def str_cleaner(string: str):
 def cli_handler():
 	parser = argparse.ArgumentParser()
 
-	parser.add_argument("-u", "--url", required=False, nargs=1, type=str, help="For adding a URL via command-line.") ## -u flag followed by URL
+	parser.add_argument("-u", "--url", required=False, nargs=1, type=str, help="For adding a URL via command-line.")
 	parser.add_argument("-p", "--proc", required=False, nargs=1, type=int, help="For specifying a number of processes for multiprocessing to spawn.")
 	parser.add_argument("-b", "--block", required=False, nargs=1, type=int, help="The minimum digit block length to bruteforce.")
 	parser.add_argument("-m", "--mode", required=False, nargs=1, type=int, help="Accepts 'directory' or 'subdomain'. Subdomain mode is the default.")
@@ -137,13 +138,13 @@ def cli_handler():
 	args = parser.parse_args()
 
 	if args.url == None:
-		url = input("\nFormat should be http:// or https://1423523.fakescamurl.com\nPlease enter the scam URL you want to map: ") ## prompts for URL to be provided if no CL argument for -u was provided
+		url = input("\nFormat should be http:// or https://1423523.fakescamurl.com\nPlease enter the scam URL you want to map: ")
 	else:
 		url = str_cleaner(args.url)
 	if args.proc == None:
 		num_processes = int(input("Enter the number of processes you would like multiprocessing to spawn: "))
 	else:
-		num_processes = int(str_cleaner(args.proc)) ## sets new num_processes if a CL argument was passed for -p
+		num_processes = int(str_cleaner(args.proc))
 	if args.block == None:
 		block = int(input("Enter the minimum digit block length you would like to target for bruteforcing: "))
 	else:
@@ -160,9 +161,9 @@ def main(num_processes=500):
 	url, num_processes, block, mode = cli_handler()
 
 	dbp = DigitBlockParser()
-	num_block, url_fstring = dbp.analyze_string(url, block) ## gets block of numbers larger than 3 out of url, and creates f string based on url with numbers removed (for iterating)
+	num_block, url_fstring = dbp.analyze_string(url, block)
 	num_block = str_cleaner(num_block)
-	num_of_nums = len(str(num_block)) ## this is the number of digits we need to start with (num_of_nums + 1 will be the end_num)
+	num_of_nums = len(str(num_block)) ## this is the number of digits we need to start with
 
 	## intializing first digit of each number
 	start_num_string = '1'
@@ -175,14 +176,14 @@ def main(num_processes=500):
 		end_num_string += '0'
 
 	start_num, end_num = int(start_num_string), int(end_num_string)
-	num_range = np.linspace(start_num, end_num - 1, num_processes + 1)
+	num_range = np.linspace(start_num, end_num - 1, num_processes + 1) ## returns num_processes + 1 of evenly spaced samples
 	explorer = Explorer(mode)
 
 	processes = []
 	
 	for i in range(num_processes):
-		proc = Process(target=explorer.handler, args=[url_fstring, num_range[i], num_range[i+1]])
-		proc.start()
+		proc = Process(target=explorer.handler, args=[url_fstring, num_range[i], num_range[i+1]])	## with each process spawned, pass i as start_num and i+1 as end_num as indices to num_range 
+		proc.start()																				## to get each set of evenly spaced numbers from linspace
 		processes.append(proc)
 	
 	for p in processes:
