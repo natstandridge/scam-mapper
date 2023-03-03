@@ -1,5 +1,4 @@
 import requests
-import multiprocessing as mp
 from multiprocessing import Process, Queue, Lock
 import numpy as np
 import argparse
@@ -82,8 +81,9 @@ class Explorer:
 		return page_list
 
 	def _requester(self, url):
-		''' Takes in url_fstring (with variable in place of largest number block), start_num, and end_num 
-			to run through every possible URL combo and run the writer if it has data. '''
+		''' Takes in url_fstring, start_num, and end_num
+			to run through every possible URL combo and run
+			the writer if it has data. '''
 
 		def check(request, url):
 			if '20' in request:
@@ -99,7 +99,7 @@ class Explorer:
 
 		request = str(requests.get(url))
 		check(request, url)
-
+		
 		if self.mode == 'directory':
 			page_list = self._page_iterator(url)
 			for page in page_list:
@@ -109,9 +109,16 @@ class Explorer:
 	def handler(self, url_fstring, start_num, end_num):
 		''' Handler that takes care of fstring evaluation, and looping through each number. '''
 		num = start_num
+	
 		while num < end_num:
 			url = url_fstring
 			url = eval(url)
+
+			if 'http' not in url:
+				url = 'http://' + url
+			if url[-1] != '/':
+					url = url + '/'
+
 			try:
 				self._requester(url)
 			except requests.exceptions.RequestException as e: ## have to ignore request exceptions to pass on pages that are timing out
@@ -121,7 +128,8 @@ class Explorer:
 			num += 1
 
 def str_cleaner(string: str):
-		''' Needed for removing list tokens that remain in CL arguments. This was more efficient than using regex or loop methods. '''
+		''' Needed for removing list tokens that remain in CL arguments.
+			This was more efficient than using regex or loop methods. '''
 		string = str(string)
 		for ch in ["'","]","["]:
 			string = string.replace(ch, "")
@@ -133,12 +141,12 @@ def cli_handler():
 	parser.add_argument("-u", "--url", required=False, nargs=1, type=str, help="For adding a URL via command-line.")
 	parser.add_argument("-p", "--proc", required=False, nargs=1, type=int, help="For specifying a number of processes for multiprocessing to spawn.")
 	parser.add_argument("-b", "--block", required=False, nargs=1, type=int, help="The minimum digit block length to bruteforce.")
-	parser.add_argument("-m", "--mode", required=False, nargs=1, type=int, help="Accepts 'directory' or 'subdomain'. Subdomain mode is the default.")
+	parser.add_argument("-m", "--mode", required=False, nargs=1, type=str, help="Accepts 'directory' or 'subdomain'. Subdomain mode is the default.")
 
 	args = parser.parse_args()
 
 	if args.url == None:
-		url = input("\nFormat should be http:// or https://1423523.fakescamurl.com\nPlease enter the scam URL you want to map: ")
+		url = input("Please enter the scam URL you want to map: ")
 	else:
 		url = str_cleaner(args.url)
 	if args.proc == None:
@@ -151,9 +159,13 @@ def cli_handler():
 		block = int(str_cleaner(args.block))
 	if args.mode == None:
 		mode = input("Specify a mode (subdomain or directory): ")
+		while (mode != 'subdomain') and (mode != 'directory'):
+			mode = input("Invalid input. Specify a mode (subdomain or directory): ")
 	else:
 		mode = str_cleaner(args.mode)
-	
+		while (mode != 'subdomain') and (mode != 'directory'):
+			mode = input("Invalid input. Specify a mode (subdomain or directory): ")
+
 	return url, num_processes, block, mode
 
 def main(num_processes=500):
@@ -182,10 +194,11 @@ def main(num_processes=500):
 	processes = []
 	
 	for i in range(num_processes):
-		proc = Process(target=explorer.handler, args=[url_fstring, num_range[i], num_range[i+1]])	## with each process spawned, pass i as start_num and i+1 as end_num as indices to num_range 
-		proc.start()																				## to get each set of evenly spaced numbers from linspace
+		''' With each process spawned, pass i as start_num and i+1 as end_num as indices to num_range to get each set of evenly spaced numbers from linspace. '''
+		proc = Process(target=explorer.handler, args=[url_fstring, num_range[i], num_range[i+1]])
+		proc.start()
 		processes.append(proc)
-	
+		
 	for p in processes:
 		p.join()
 
