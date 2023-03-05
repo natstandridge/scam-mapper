@@ -1,7 +1,7 @@
 ## A way to map the subdomains used by scammers
 
 ## Bugs to fix:
-- Directory mode only works with num_processes 1
+- Directory mode only works with num_processes = 1
 
 ## To-Do:
 1. Add handling for URLs that do not have any numbers.

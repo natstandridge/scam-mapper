@@ -1,7 +1,7 @@
 import requests
 from multiprocessing import Process, Queue, Lock
 import numpy as np
-import argparse
+from helpers import *
 
 class Colors:
     """ Colors for differentiating between messages. Use like so: f"{colors.GREEN}My green text{colors.ENDC}".  """
@@ -56,10 +56,9 @@ class Explorer:
 			f.write(url + '\n')
 		f.close()
 		self.lock.release()
-		print(f"Writer process is finished writing {url}")
 
 	def _page_iterator(self, url):
-		''' Returns a list of pages to check for the given URL. '''
+		''' Returns a list of pages to _checker for the given URL. '''
 		
 		for extension in open('extensions.txt', 'r').read().splitlines():
 			if extension in url:
@@ -80,12 +79,7 @@ class Explorer:
 
 		return page_list
 
-	def _requester(self, url):
-		''' Takes in url_fstring, start_num, and end_num
-			to run through every possible URL combo and run
-			the writer if it has data. '''
-
-		def check(request, url):
+	def _checker(self, request, url):
 			if '20' in request:
 				print(f'{Colors.GREEN}Valid URL Found: {url}{Colors.ENDC}')
 				self.queue.put(url)
@@ -97,14 +91,19 @@ class Explorer:
 			else:
 				print(f'URL: {url} is not valid and did not return 300-level code.')
 
+	def _requester(self, url):
+		''' Takes in url_fstring, start_num, and end_num
+			to run through every possible URL combo and run
+			the writer if it has data. '''
+
 		request = str(requests.get(url))
-		check(request, url)
+		self._checker(request, url)
 		
 		if self.mode == 'directory':
 			page_list = self._page_iterator(url)
 			for page in page_list:
 				request = str(requests.get(page))
-				check(request, page)
+				self._checker(request, page)
 				
 	def handler(self, url_fstring, start_num, end_num):
 		''' Handler that takes care of fstring evaluation, and looping through each number. '''
@@ -126,47 +125,6 @@ class Explorer:
 				print(f"URL: {url} is not valid.")
 
 			num += 1
-
-def str_cleaner(string: str):
-		''' Needed for removing list tokens that remain in CL arguments.
-			This was more efficient than using regex or loop methods. '''
-		string = str(string)
-		for ch in ["'","]","["]:
-			string = string.replace(ch, "")
-		return string
-	
-def cli_handler():
-	parser = argparse.ArgumentParser()
-
-	parser.add_argument("-u", "--url", required=False, nargs=1, type=str, help="For adding a URL via command-line.")
-	parser.add_argument("-p", "--proc", required=False, nargs=1, type=int, help="For specifying a number of processes for multiprocessing to spawn.")
-	parser.add_argument("-b", "--block", required=False, nargs=1, type=int, help="The minimum digit block length to bruteforce.")
-	parser.add_argument("-m", "--mode", required=False, nargs=1, type=str, help="Accepts 'directory' or 'subdomain'. Subdomain mode is the default.")
-
-	args = parser.parse_args()
-
-	if args.url == None:
-		url = input("Please enter the scam URL you want to map: ")
-	else:
-		url = str_cleaner(args.url)
-	if args.proc == None:
-		num_processes = int(input("Enter the number of processes you would like multiprocessing to spawn: "))
-	else:
-		num_processes = int(str_cleaner(args.proc))
-	if args.block == None:
-		block = int(input("Enter the minimum digit block length you would like to target for bruteforcing: "))
-	else:
-		block = int(str_cleaner(args.block))
-	if args.mode == None:
-		mode = input("Specify a mode (subdomain or directory): ")
-		while (mode != 'subdomain') and (mode != 'directory'):
-			mode = input("Invalid input. Specify a mode (subdomain or directory): ")
-	else:
-		mode = str_cleaner(args.mode)
-		while (mode != 'subdomain') and (mode != 'directory'):
-			mode = input("Invalid input. Specify a mode (subdomain or directory): ")
-
-	return url, num_processes, block, mode
 
 def main(num_processes=500):
 
@@ -198,7 +156,7 @@ def main(num_processes=500):
 		proc = Process(target=explorer.handler, args=[url_fstring, num_range[i], num_range[i+1]])
 		proc.start()
 		processes.append(proc)
-		
+        	
 	for p in processes:
 		p.join()
 
