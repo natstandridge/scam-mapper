@@ -48,7 +48,7 @@ class Explorer:
 		self.mode = mode
 		self.wordlist = wordlist
 
-	def _writer(self):
+	def __writer(self):
 		''' Acquires lock, gets URL from queue, and then writes to the file and releases lock. '''
 		self.lock.acquire()
 		with open('verified_domains.txt', 'a') as f:
@@ -57,8 +57,8 @@ class Explorer:
 		f.close()
 		self.lock.release()
 
-	def _page_iterator(self, url):
-		''' Returns a list of pages to _checker for the given URL. '''
+	def __page_iterator(self, url):
+		''' Returns a list of pages to __checker for the given URL. '''
 		
 		for extension in open('extensions.txt', 'r').read().splitlines():
 			if extension in url:
@@ -79,11 +79,11 @@ class Explorer:
 
 		return page_list
 
-	def _checker(self, request, url):
+	def __checker(self, request, url):
 			if '20' in request:
 				print(f'{Colors.GREEN}Valid URL Found: {url}{Colors.ENDC}')
 				self.queue.put(url)
-				self._writer()
+				self.__writer()
 
 			elif '30' in request:
 				print(f'URL: {url} is not valid and returned 300-level code.')
@@ -91,19 +91,19 @@ class Explorer:
 			else:
 				print(f'URL: {url} is not valid and did not return 300-level code.')
 
-	def _requester(self, url):
+	def __requester(self, url):
 		''' Takes in url_fstring, start_num, and end_num
 			to run through every possible URL combo and run
 			the writer if it has data. '''
 
 		request = str(requests.get(url))
-		self._checker(request, url)
+		self.__checker(request, url)
 		
 		if self.mode == 'directory':
-			page_list = self._page_iterator(url)
+			page_list = self.__page_iterator(url)
 			for page in page_list:
 				request = str(requests.get(page))
-				self._checker(request, page)
+				self.__checker(request, page)
 				
 	def handler(self, url_fstring, start_num, end_num):
 		''' Handler that takes care of fstring evaluation, and looping through each number. '''
@@ -119,14 +119,14 @@ class Explorer:
 					url = url + '/'
 
 			try:
-				self._requester(url)
+				self.__requester(url)
 			except requests.exceptions.RequestException as e: ## have to ignore request exceptions to pass on pages that are timing out
 				#print(e)
 				print(f"URL: {url} is not valid.")
 
 			num += 1
 
-def main(num_processes=500):
+def main(num_processes=100):
 
 	url, num_processes, block, mode = cli_handler()
 
