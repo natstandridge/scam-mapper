@@ -58,15 +58,7 @@ class Explorer:
 		self.lock.release()
 
 	def __page_iterator(self, url):
-		''' Returns a list of pages to __checker for the given URL. '''
-		
-		for extension in open('extensions.txt', 'r').read().splitlines():
-			if extension in url:
-				page_start_index = url.index(extension) + len(extension) + 1
-				url_without_page = url[:page_start_index]
-				break
-			else:
-				continue
+		''' Returns a list of pages for the provided URL based on self.wordlist '''
 
 		with open(self.wordlist, 'r') as f:
 			directories = f.read().splitlines()
@@ -75,36 +67,47 @@ class Explorer:
 		page_list = []
 
 		for directory in directories:
-			page_list.append(url_without_page + directory)
+			page_list.append(url + directory)
 
 		return page_list
 
 	def __checker(self, request, url):
-			if '20' in request:
-				print(f'{Colors.GREEN}Valid URL Found: {url}{Colors.ENDC}')
-				self.queue.put(url)
-				self.__writer()
+		''' Checks codes returned from request to determine validity. '''
+		if '20' in request:
+			print(f'{Colors.GREEN}Valid URL Found: {url}{Colors.ENDC}')
+			self.queue.put(url)
+			self.__writer()
 
-			elif '30' in request:
-				print(f'URL: {url} is not valid and returned 300-level code.')
-				
-			else:
-				print(f'URL: {url} is not valid and did not return 300-level code.')
+		elif '30' in request:
+			print(f'URL: {url} is not valid and returned 300-level code.')
+			
+		else:
+			print(f'URL: {url} is not valid and did not return 300-level code.')
 
 	def __requester(self, url):
-		''' Takes in url_fstring, start_num, and end_num
-			to run through every possible URL combo and run
-			the writer if it has data. '''
+		''' Performs the request on the URL and runs checker to check codes. '''
 
-		request = str(requests.get(url))
-		self.__checker(request, url)
-		
 		if self.mode == 'directory':
+			try:
+				request = str(requests.get(url))
+			except:
+				print(f'URL: {url} is not valid - the request failed.')
+			self.__checker(request, url)
 			page_list = self.__page_iterator(url)
 			for page in page_list:
-				request = str(requests.get(page))
+				try:
+					request = str(requests.get(page))
+				except:
+					print(f'URL: {url} is not valid - the request failed in directory mode.')
 				self.__checker(request, page)
-				
+		
+		else:
+			try:
+				request = str(requests.get(url))
+			except:
+				print(f'URL: {url} is not valid - the request failed.')
+			self.__checker(request, url)
+		
 	def handler(self, url_fstring, start_num, end_num):
 		''' Handler that takes care of fstring evaluation, and looping through each number. '''
 		num = start_num
@@ -113,16 +116,7 @@ class Explorer:
 			url = url_fstring
 			url = eval(url)
 
-			if 'http' not in url:
-				url = 'http://' + url
-			if url[-1] != '/':
-					url = url + '/'
-
-			try:
-				self.__requester(url)
-			except requests.exceptions.RequestException as e: ## have to ignore request exceptions to pass on pages that are timing out
-				#print(e)
-				print(f"URL: {url} is not valid.")
+			self.__requester(url)
 
 			num += 1
 

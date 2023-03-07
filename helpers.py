@@ -2,8 +2,9 @@ import argparse
 
 def str_cleaner(string: str):
 		''' Needed for removing list tokens that remain in CL arguments.
-			This was more efficient than using regex or loop methods. '''
+			This was more efficient than using regex or other loop methods. '''
 		string = str(string)
+		string = string.strip()
 		for ch in ["'","]","["]:
 			string = string.replace(ch, "")
 		return string
@@ -22,6 +23,11 @@ def cli_handler():
 		url = input("Please enter the scam URL you want to map: ")
 	else:
 		url = str_cleaner(args.url)
+	if 'http' not in url:
+		url = 'http://' + url
+	if url[-1] != '/':
+		url = url + '/'
+
 	if args.proc == None:
 		num_processes = int(input("Enter the number of processes you would like multiprocessing to spawn: "))
 	else:
