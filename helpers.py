@@ -45,7 +45,7 @@ def cli_handler():
 		while (mode != 'subdomain') and (mode != 'directory'):
 			mode = input("Invalid input. Specify a mode (subdomain or directory): ")
 
-	return url, num_processes, block, mode
+	return(url, num_processes, block, mode)
 
 
     

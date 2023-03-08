@@ -39,9 +39,10 @@ class DigitBlockParser:
 		for b in blocks:
 			s = s.replace(b, '{int(num)}') ## inserts fstring compatible num variable that is always converted to int just in case
 
-		return blocks, f'f"""{s}"""' ## fstring hack that allows us to turn a normal string into an fstring
+		return(blocks, f'f"""{s}"""') ## fstring hack that allows us to turn a normal string into an fstring
 
 class Explorer:
+	''' Explores URL possibilities and records the ones that are valid. '''
 	def __init__(self, mode='subdomain', wordlist='wordlists/common.txt'):
 		self.queue = Queue()
 		self.lock = Lock()
@@ -69,7 +70,7 @@ class Explorer:
 		for directory in directories:
 			page_list.append(url + directory)
 
-		return page_list
+		return(page_list)
 
 	def __checker(self, request, url):
 		''' Checks codes returned from request to determine validity. '''
@@ -90,23 +91,25 @@ class Explorer:
 		if self.mode == 'directory':
 			try:
 				request = str(requests.get(url))
+				self.__checker(request, url)
 			except:
 				print(f'URL: {url} is not valid - the request failed.')
-			self.__checker(request, url)
+			
 			page_list = self.__page_iterator(url)
+
 			for page in page_list:
 				try:
 					request = str(requests.get(page))
+					self.__checker(request, page)
 				except:
 					print(f'URL: {url} is not valid - the request failed in directory mode.')
-				self.__checker(request, page)
-		
+				
 		else:
 			try:
 				request = str(requests.get(url))
+				self.__checker(request, url)
 			except:
 				print(f'URL: {url} is not valid - the request failed.')
-			self.__checker(request, url)
 		
 	def handler(self, url_fstring, start_num, end_num):
 		''' Handler that takes care of fstring evaluation, and looping through each number. '''
