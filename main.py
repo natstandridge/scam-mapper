@@ -55,7 +55,6 @@ class Explorer:
 		with open('verified_domains.txt', 'a') as f:
 			url = self.queue.get()
 			f.write(url + '\n')
-		f.close()
 		self.lock.release()
 
 	def __page_iterator(self, url):
@@ -63,7 +62,6 @@ class Explorer:
 
 		with open(self.wordlist, 'r') as f:
 			directories = f.read().splitlines()
-		f.close()
 
 		page_list = []
 
