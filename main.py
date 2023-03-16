@@ -48,6 +48,7 @@ class Explorer:
 		self.lock = Lock()
 		self.mode = mode
 		self.wordlist = wordlist
+		self.visited = set()
 
 	def __writer(self):
 		''' Acquires lock, gets URL from queue, and then writes to the file and releases lock. '''
@@ -72,16 +73,19 @@ class Explorer:
 
 	def __checker(self, request, url):
 		''' Checks codes returned from request to determine validity. '''
-		if '20' in request:
-			print(f'{Colors.GREEN}Valid URL Found: {url}{Colors.ENDC}')
-			self.queue.put(url)
-			self.__writer()
 
-		elif '30' in request:
-			print(f'URL: {url} is not valid and returned 300-level code.')
-			
-		else:
-			print(f'URL: {url} is not valid and did not return 300-level code.')
+		if url not in self.visited:
+			if '20' in request:
+				print(f'{Colors.GREEN}Valid URL Found: {url}{Colors.ENDC}')
+				self.queue.put(url)
+				self.visited.add(url)
+				self.__writer()
+
+			elif '30' in request:
+				print(f'URL: {url} is not valid and returned 300-level code.')
+				
+			else:
+				print(f'URL: {url} is not valid and did not return 300-level code.')
 
 	def __requester(self, url):
 		''' Performs the request on the URL and runs checker to check codes. '''
@@ -93,7 +97,7 @@ class Explorer:
 			except:
 				print(f'URL: {url} is not valid - the request failed.')
 			
-			page_list = self.__page_iterator(url)
+			page_list = self.__page_iterator(url) ## returns a list of URLs with pages added from the provided wordlist
 
 			for page in page_list:
 				try:
@@ -107,7 +111,7 @@ class Explorer:
 				request = str(requests.get(url))
 				self.__checker(request, url)
 			except:
-				print(f'URL: {url} is not valid - the request failed.')
+				print(f'URL: {url} is not valid - ConnectionError.')
 		
 	def handler(self, url_fstring, start_num, end_num):
 		''' Handler that takes care of fstring evaluation, and looping through each number. '''
@@ -115,7 +119,7 @@ class Explorer:
 	
 		while num < end_num:
 			url = url_fstring
-			url = eval(url)
+			url = eval(url) ## eval the fstring to update {num} with the new value
 
 			self.__requester(url)
 
